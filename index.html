@@ -416,7 +416,7 @@
 
       const profileMenuRef = useRef(null);
       const popstateHandlerRef = useRef(null);
-      const videoWrapperRef = useRef(null); // Ref for mobile full screen landscape rotation
+      const iframeRef = useRef(null); // Targeted Ref to isolates the video alone during native fullscreen calls
 
       const typewriterPhrases = ["Developed by Velvet Shadow"];
       const runningTagline = useTypewriter(typewriterPhrases, 100, 4500);
@@ -722,17 +722,17 @@
           .catch(err => setAuthErr(err.message));
       };
 
-      // Mobile rotation and fullscreen orientation handler
+      // Direct clean Iframe Fullscreen and mobile orientation landscape lock trigger
       const toggleFullscreenAndRotate = async () => {
-        const wrapper = videoWrapperRef.current;
-        if (!wrapper) return;
+        const iframe = iframeRef.current;
+        if (!iframe) return;
 
         try {
           if (!document.fullscreenElement) {
-            if (wrapper.requestFullscreen) {
-              await wrapper.requestFullscreen();
-            } else if (wrapper.webkitRequestFullscreen) {
-              await wrapper.webkitRequestFullscreen();
+            if (iframe.requestFullscreen) {
+              await iframe.requestFullscreen();
+            } else if (iframe.webkitRequestFullscreen) {
+              await iframe.webkitRequestFullscreen();
             }
             
             // Try locking screen to landscape on compatible devices
@@ -1966,13 +1966,10 @@
             </div>
           )}
 
-          {/* ACTIVE EMBEDDED STREAM RECEPTOR PLAYER (Now contains automatic rotate to landscape triggers) */}
+          {/* ACTIVE EMBEDDED STREAM RECEPTOR PLAYER (Clean direct-iframe fullscreen) */}
           {watchVideo && (
             <div className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-4">
-              <div 
-                ref={videoWrapperRef}
-                className="relative w-full max-w-4xl bg-amoled-900 border border-white/5 rounded-2xl overflow-hidden shadow-2xl flex flex-col"
-              >
+              <div className="relative w-full max-w-4xl bg-amoled-900 border border-white/5 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
                 
                 {/* Embedded Header Info */}
                 <div className="p-4 bg-amoled-950 flex items-center justify-between border-b border-white/5">
@@ -1981,15 +1978,15 @@
                     <span className="text-xs font-bold text-white truncate">{watchVideo.title}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    {/* Full screen landscape automation button */}
+                    {/* Full screen video isolate automation button */}
                     <button 
                       onClick={toggleFullscreenAndRotate}
                       className="w-8 h-8 rounded-lg bg-amoled-850 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
                       title="Toggle Fullscreen Landscape"
                     >
-                      <i className={`fa-solid ${isFullscreen ? 'fa-compress' : 'fa-expand'}`}></i>
+                      <i className="fa-solid fa-expand"></i>
                     </button>
-                    {/* Return back to the starting tab on closure trigger */}
+                    {/* Return back to starting tab on close */}
                     <button 
                       onClick={() => {
                         setWatchVideo(null);
@@ -2003,9 +2000,10 @@
                   </div>
                 </div>
 
-                {/* Secure video container viewport */}
+                {/* Secure video container viewport with isolated ref */}
                 <div className="aspect-video w-full bg-black">
                   <iframe 
+                    ref={iframeRef}
                     width="100%" 
                     height="100%" 
                     src={`https://www.youtube.com/embed/${watchVideo.videoId}?autoplay=1&rel=0`} 
