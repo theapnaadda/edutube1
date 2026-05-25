@@ -411,6 +411,7 @@
       const [slideIndex, setSlideIndex] = useState(0);
 
       const profileMenuRef = useRef(null);
+      const popstateHandlerRef = useRef(null);
 
       const typewriterPhrases = ["Developed by Velvet Shadow"];
       const runningTagline = useTypewriter(typewriterPhrases, 100, 4500);
@@ -431,16 +432,19 @@
         return () => window.removeEventListener('click', handleGlobalClick);
       }, []);
 
-      // Browser back-navigation interception mechanism
+      // Secure browser exit stack interceptor
       useEffect(() => {
-        window.history.pushState({ captureExit: true }, '');
-        window.history.pushState({ captureExit: true }, '');
+        // Seed our initial local state stack to intercept standard pops
+        window.history.pushState({ entryPoint: true }, '');
+        window.history.pushState({ gateActive: true }, '');
 
         const handlePopState = (e) => {
+          // Re-inject history state node immediately to lock page unloading
+          window.history.pushState({ gateActive: true }, '');
           setExitModalOpen(true);
-          window.history.pushState({ captureExit: true }, '');
         };
 
+        popstateHandlerRef.current = handlePopState;
         window.addEventListener('popstate', handlePopState);
 
         const handleBeforeUnload = (e) => {
@@ -512,7 +516,6 @@
       // Robust slideshow background selector (accurately filters standard booleans)
       const slideshowSource = useMemo(() => {
         const trends = videos.filter(v => v.isTrending === true || v.isTrending === "true");
-        // If no trending elements are configured yet, fall back gracefully to the 5 most recent videos
         return trends.length > 0 ? trends : videos.slice(0, 5);
       }, [videos]);
 
@@ -649,6 +652,20 @@
         showToast("✏️ Edit form populated with selected lecture.", "info");
       };
 
+      // Confirmed exit triggers safe clean up and historic backtracking
+      const confirmExitApp = () => {
+        if (popstateHandlerRef.current) {
+          window.removeEventListener('popstate', popstateHandlerRef.current);
+        }
+        setExitModalOpen(false);
+        // Step back past our lock parameters to allow the native exit
+        if (window.history.length > 1) {
+          window.history.go(-2);
+        } else {
+          window.location.href = "about:blank";
+        }
+      };
+
       const handleLogout = () => {
         auth.signOut().then(() => {
           setActiveTab('home');
@@ -734,14 +751,7 @@
                 ].map((item) => (
                   <button
                     key={item.id}
-                    onClick={() => {
-                      if (item.locked) {
-                        showToast("🔒 Authentication is required to unlock personal panels.", "warning");
-                        setAuthModal({ isOpen: true, tab: 'login' });
-                        return;
-                      }
-                      setActiveTab(item.id);
-                    }}
+                    onClick={() => setActiveTab(item.id)}
                     className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all duration-200 ${activeTab === item.id ? 'bg-brand-500/10 border border-brand-500/25 text-brand-500' : 'text-slate-400 hover:bg-amoled-850 hover:text-white border border-transparent'}`}
                   >
                     <div className="flex items-center gap-3">
@@ -1259,40 +1269,61 @@
               {/* VIEW 4: BOOKMARKS with category wise filter */}
               {activeTab === 'bookmark' && (
                 <div className="space-y-6">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <h2 className="font-display font-extrabold text-xl text-white">Your Bookmarked Classes</h2>
-                    
-                    {/* Category Filter for Bookmark list */}
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar max-w-full pb-1">
-                      {CATEGORIES.map(category => (
-                        <button
-                          key={category}
-                          onClick={() => setBookmarkFilter(category)}
-                          className={`px-3 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wide border transition-all ${bookmarkFilter === category ? 'bg-brand-500/10 border-brand-500 text-brand-500' : 'bg-amoled-900 border-white/5 text-slate-400 hover:text-white'}`}
-                        >
-                          {category}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {filteredBookmarks.length === 0 ? (
-                    <div className="text-center py-20 bg-amoled-900 border border-white/5 rounded-2xl">
-                      <i className="fa-solid fa-heart text-3xl text-slate-600 mb-2"></i>
-                      <p className="text-xs text-slate-400">No matching bookmarked items found.</p>
+                  {!user ? (
+                    /* Beautiful locked message overlay instead of blank screen crash */
+                    <div className="text-center py-20 bg-amoled-900 border border-white/5 rounded-2xl max-w-md mx-auto space-y-4 p-6">
+                      <div className="w-16 h-16 rounded-full bg-brand-500/10 text-brand-500 border border-brand-500/20 flex items-center justify-center mx-auto">
+                        <i className="fa-solid fa-lock text-2xl animate-bounce"></i>
+                      </div>
+                      <h3 className="font-display font-bold text-lg text-slate-100">Bookmarks Locked</h3>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        You can only access and save bookmarked classes when you are signed into your EduTube student desk.
+                      </p>
+                      <button 
+                        onClick={() => setAuthModal({ isOpen: true, tab: 'login' })}
+                        className="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl shadow-lg transition-all"
+                      >
+                        Login / Register
+                      </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                      {filteredBookmarks.map(v => (
-                        <VideoCard 
-                          key={v.id} 
-                          video={v} 
-                          isBookmarked={true}
-                          onBookmark={toggleBookmark}
-                          onPlay={handlePlayVideo} 
-                        />
-                      ))}
-                    </div>
+                    <>
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <h2 className="font-display font-extrabold text-xl text-white">Your Bookmarked Classes</h2>
+                        
+                        {/* Category Filter for Bookmark list */}
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar max-w-full pb-1">
+                          {CATEGORIES.map(category => (
+                            <button
+                              key={category}
+                              onClick={() => setBookmarkFilter(category)}
+                              className={`px-3 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wide border transition-all ${bookmarkFilter === category ? 'bg-brand-500/10 border-brand-500 text-brand-500' : 'bg-amoled-900 border-white/5 text-slate-400 hover:text-white'}`}
+                            >
+                              {category}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {filteredBookmarks.length === 0 ? (
+                        <div className="text-center py-20 bg-amoled-900 border border-white/5 rounded-2xl">
+                          <i className="fa-solid fa-heart text-3xl text-slate-600 mb-2"></i>
+                          <p className="text-xs text-slate-400">No matching bookmarked items found.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                          {filteredBookmarks.map(v => (
+                            <VideoCard 
+                              key={v.id} 
+                              video={v} 
+                              isBookmarked={true}
+                              onBookmark={toggleBookmark}
+                              onPlay={handlePlayVideo} 
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -1300,61 +1331,82 @@
               {/* VIEW 5: HISTORY LOGS with category wise filter */}
               {activeTab === 'history' && (
                 <div className="space-y-6">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex items-center justify-between">
-                      <h2 className="font-display font-extrabold text-xl text-white">Study History Records</h2>
-                      {Object.keys(history).length > 0 && (
-                        <button 
-                          onClick={() => {
-                            promptConfirm("Are you sure you want to clear your entire watch history logs?", () => {
-                              setHistory({});
-                              localStorage.setItem('edutube_history', '{}');
-                              if (user) {
-                                db.ref(`users/${user.uid}/history`).remove()
-                                  .then(() => showToast("History logged records cleared."));
-                              }
-                            });
-                          }}
-                          className="text-xs text-rose-400 hover:text-rose-300 font-bold"
-                        >
-                          Clear All History
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Category Filter for History logs */}
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar max-w-full pb-1">
-                      {CATEGORIES.map(category => (
-                        <button
-                          key={category}
-                          onClick={() => setHistoryFilter(category)}
-                          className={`px-3 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wide border transition-all ${historyFilter === category ? 'bg-brand-500/10 border-brand-500 text-brand-500' : 'bg-amoled-900 border-white/5 text-slate-400 hover:text-white'}`}
-                        >
-                          {category}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {filteredHistory.length === 0 ? (
-                    <div className="text-center py-20 bg-amoled-900 border border-white/5 rounded-2xl">
-                      <i className="fa-solid fa-clock text-3xl text-slate-600 mb-2"></i>
-                      <p className="text-xs text-slate-400">No matching history logs found.</p>
+                  {!user ? (
+                    /* Beautiful locked message overlay instead of blank screen crash */
+                    <div className="text-center py-20 bg-amoled-900 border border-white/5 rounded-2xl max-w-md mx-auto space-y-4 p-6">
+                      <div className="w-16 h-16 rounded-full bg-brand-500/10 text-brand-500 border border-brand-500/20 flex items-center justify-center mx-auto">
+                        <i className="fa-solid fa-lock text-2xl animate-bounce"></i>
+                      </div>
+                      <h3 className="font-display font-bold text-lg text-slate-100">Study History Locked</h3>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Your watched class history metrics, logs, and progress tracking indicators are restricted to authenticated users.
+                      </p>
+                      <button 
+                        onClick={() => setAuthModal({ isOpen: true, tab: 'login' })}
+                        className="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl shadow-lg transition-all"
+                      >
+                        Login / Register
+                      </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                      {filteredHistory.map(v => (
-                        <VideoCard 
-                          key={v.id} 
-                          video={v} 
-                          isBookmarked={!!bookmarks[v.id]}
-                          onBookmark={toggleBookmark}
-                          onPlay={handlePlayVideo} 
-                          showHistoryMenu={true}
-                          onDeleteHistory={handleDeleteHistoryItem}
-                        />
-                      ))}
-                    </div>
+                    <>
+                      <div className="flex flex-col gap-4">
+                        <div className="flex items-center justify-between">
+                          <h2 className="font-display font-extrabold text-xl text-white">Study History Records</h2>
+                          {Object.keys(history).length > 0 && (
+                            <button 
+                              onClick={() => {
+                                promptConfirm("Are you sure you want to clear your entire watch history logs?", () => {
+                                  setHistory({});
+                                  localStorage.setItem('edutube_history', '{}');
+                                  if (user) {
+                                    db.ref(`users/${user.uid}/history`).remove()
+                                      .then(() => showToast("History logged records cleared."));
+                                  }
+                                });
+                              }}
+                              className="text-xs text-rose-400 hover:text-rose-300 font-bold"
+                            >
+                              Clear All History
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Category Filter for History logs */}
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar max-w-full pb-1">
+                          {CATEGORIES.map(category => (
+                            <button
+                              key={category}
+                              onClick={() => setHistoryFilter(category)}
+                              className={`px-3 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wide border transition-all ${historyFilter === category ? 'bg-brand-500/10 border-brand-500 text-brand-500' : 'bg-amoled-900 border-white/5 text-slate-400 hover:text-white'}`}
+                            >
+                              {category}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {filteredHistory.length === 0 ? (
+                        <div className="text-center py-20 bg-amoled-900 border border-white/5 rounded-2xl">
+                          <i className="fa-solid fa-clock text-3xl text-slate-600 mb-2"></i>
+                          <p className="text-xs text-slate-400">No matching history logs found.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                          {filteredHistory.map(v => (
+                            <VideoCard 
+                              key={v.id} 
+                              video={v} 
+                              isBookmarked={!!bookmarks[v.id]}
+                              onBookmark={toggleBookmark}
+                              onPlay={handlePlayVideo} 
+                              showHistoryMenu={true}
+                              onDeleteHistory={handleDeleteHistoryItem}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -1585,24 +1637,25 @@
               { id: 'home', label: 'Home', icon: 'fa-house' },
               { id: 'learning', label: 'Desk', icon: 'fa-graduation-cap' },
               { id: 'trending', label: 'Hot', icon: 'fa-fire-flame-curved' },
-              { id: 'bookmark', label: 'Library', icon: 'fa-heart', locked: !user },
-              { id: 'history', label: 'Logs', icon: 'fa-history', locked: !user }
+              { id: 'bookmark', label: 'Library', icon: 'fa-heart' },
+              { id: 'history', label: 'Logs', icon: 'fa-history' }
             ].map((item) => {
               const isActive = activeTab === item.id;
               return (
                 <button
                   key={item.id}
-                  onClick={() => {
-                    if (item.locked) {
-                      showToast("🔒 Please login first to play and save sessions.", "warning");
-                      setAuthModal({ isOpen: true, tab: 'login' });
-                      return;
-                    }
-                    setActiveTab(item.id);
-                  }}
+                  onClick={() => setActiveTab(item.id)}
                   className={`flex flex-col items-center justify-center flex-grow py-1 transition-all ${isActive ? 'text-brand-500 scale-105' : 'text-slate-500'}`}
                 >
-                  <i className={`fa-solid ${item.icon} text-base mb-0.5`}></i>
+                  <div className="relative">
+                    <i className={`fa-solid ${item.icon} text-base mb-0.5`}></i>
+                    {/* Tiny micro lock-badge overlay for mobile bottom nav for non-signed-in nodes */}
+                    {!user && (item.id === 'bookmark' || item.id === 'history') && (
+                      <span className="absolute -top-1.5 -right-1.5 text-[7px] bg-brand-600 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center border border-black scale-90">
+                        <i className="fa-solid fa-lock"></i>
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[9px] font-bold tracking-tight">{item.label}</span>
                 </button>
               );
@@ -1678,9 +1731,7 @@
                     Keep Studying
                   </button>
                   <button 
-                    onClick={() => {
-                      window.location.href = "about:blank";
-                    }}
+                    onClick={confirmExitApp}
                     className="flex-1 py-3 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white text-xs font-bold rounded-xl shadow-lg shadow-red-950/20"
                   >
                     Exit Now
