@@ -442,6 +442,7 @@
       const [isFullscreen, setIsFullscreen] = useState(false); // Tracks fullscreen orientation state
       
       const [popup, setPopup] = useState({ isOpen: false, title: '', content: '' });
+      const [showTelegramPromo, setShowTelegramPromo] = useState(false);
 
       // Admin Management States
       const [adminForm, setAdminForm] = useState({ id: "", title: "", category: "JEE", youtubeUrl: "", channelName: "", isTrending: false });
@@ -594,6 +595,15 @@
         }, 5500);
         return () => clearInterval(interval);
       }, [slideshowSource, slideIndex]);
+
+      // Detect First Time Visit for Telegram Channel Promotion
+      useEffect(() => {
+        const hasVisited = localStorage.getItem('edutube_first_visit');
+        if (!hasVisited) {
+          setShowTelegramPromo(true);
+          localStorage.setItem('edutube_first_visit', 'true');
+        }
+      }, []);
 
       const showToast = (message, type = 'info') => {
         setGlobalToast({ isOpen: true, message, type });
@@ -1010,21 +1020,6 @@
                         >
                           <i className="fa-solid fa-circle-info text-brand-500 text-xs"></i>
                           <span>Disclaimer</span>
-                        </button>
-
-                        <button 
-                          onClick={() => {
-                            setShowProfileDropdown(false);
-                            setPopup({
-                              isOpen: true,
-                              title: "Contact Desktop Desk",
-                              content: "Helpdesk Administration Support:\n\nReach the platform's primary admin core directly below for catalog updates, queries, or partnership suggestions."
-                            });
-                          }}
-                          className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-amoled-850 rounded-lg flex items-center gap-2"
-                        >
-                          <i className="fa-solid fa-headset text-brand-500 text-xs"></i>
-                          <span>Contact Us</span>
                         </button>
 
                         <button 
@@ -1746,7 +1741,18 @@
               <p className="text-xs text-slate-500 text-center sm:text-left font-medium">
                 &copy; 2026 EduTube. All Rights Reserved.
               </p>
-              <div className="flex gap-5 text-slate-500 text-xs font-semibold">
+              
+              <div className="flex items-center gap-5 text-slate-500 text-xs font-semibold flex-wrap justify-center">
+                {/* Integration of Telegram & Email links with Icons */}
+                <a href="https://t.me/+Hsk2sBJNmbA5YWJl" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-brand-500 transition-colors text-base flex items-center gap-1.5" title="Join our Telegram">
+                  <i className="fa-brands fa-telegram"></i>
+                  <span className="text-xs">Telegram</span>
+                </a>
+                <a href="mailto:thepremanshu@gmail.com" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-brand-500 transition-colors text-base flex items-center gap-1.5" title="Email Us">
+                  <i className="fa-solid fa-envelope"></i>
+                  <span className="text-xs">Email</span>
+                </a>
+                <span>•</span>
                 <span className="hover:text-slate-300 cursor-pointer" onClick={() => {
                   setPopup({
                     isOpen: true,
@@ -1800,6 +1806,41 @@
           {/* ========================================================== */}
           {/*             CUSTOM UNIFIED OVERLAYS & MODALS               */}
           {/* ========================================================== */}
+
+          {/* FIRST TIME TELEGRAM CONTEXT MODAL */}
+          {showTelegramPromo && (
+            <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+              <div className="bg-gradient-to-b from-amoled-900 to-black border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl text-center space-y-6">
+                <div className="w-16 h-16 rounded-2xl bg-brand-500/10 text-brand-500 border border-brand-500/20 flex items-center justify-center mx-auto shadow-inner animate-float-slow">
+                  <i className="fa-brands fa-telegram text-3xl"></i>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-display font-bold text-lg text-slate-100 uppercase tracking-tight">Join Our Telegram Channel</h3>
+                  <p className="text-xs text-slate-300 leading-relaxed px-2 font-medium">
+                    To get all the New Features and all the New Videos Uploaded Update Join our Telegram Channel now. Here you get More closer to us...
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowTelegramPromo(false)}
+                    className="flex-1 py-3 bg-amoled-850 hover:bg-amoled-800 text-slate-200 text-xs font-bold rounded-xl border border-white/5"
+                  >
+                    Maybe Later
+                  </button>
+                  <a 
+                    href="https://t.me/+Hsk2sBJNmbA5YWJl" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    onClick={() => setShowTelegramPromo(false)}
+                    className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white text-xs font-bold rounded-xl shadow-lg shadow-purple-950/25 text-center flex items-center justify-center gap-1.5"
+                  >
+                    <i className="fa-solid fa-circle-arrow-up-right text-[10px]"></i>
+                    Join Now
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* CUSTOM CONFIRMATION MODAL BAR */}
           {globalConfirm.isOpen && (
@@ -2098,17 +2139,6 @@
                   </button>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed whitespace-pre-line">{popup.content}</p>
-                {popup.title.includes("Contact") && (
-                  <div className="p-3 bg-amoled-950 border border-white/5 rounded-xl flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center text-brand-500">
-                      <i className="fa-solid fa-envelope"></i>
-                    </div>
-                    <div className="text-[10px]">
-                      <p className="text-slate-500 font-bold">ADMIN EMAIL</p>
-                      <a href="mailto:thepremanshu@gmail.com" className="text-brand-500 hover:underline font-bold">thepremanshu@gmail.com</a>
-                    </div>
-                  </div>
-                )}
                 <button 
                   onClick={() => setPopup({ ...popup, isOpen: false })}
                   className="w-full py-2 bg-amoled-800 hover:bg-amoled-750 text-slate-200 text-xs font-bold rounded-xl"
@@ -2226,4 +2256,4 @@
     root.render(<App />);
   </script>
 </body>
-</html>
+    </html>
